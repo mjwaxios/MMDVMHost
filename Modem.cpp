@@ -38,6 +38,8 @@
 #endif
 
 const unsigned char MMDVM_FRAME_START = 0xE0U;
+const unsigned char MMDVM_RX = 0x00U;
+const unsigned char MMDVM_TX = 0x01U;
 
 const unsigned char MMDVM_GET_VERSION = 0x00U;
 const unsigned char MMDVM_GET_STATUS  = 0x01U;
@@ -173,7 +175,7 @@ void CModem::write_pcap_hdr(FILE *a_file) {
    pcap_hdr.thiszone = 0;
    pcap_hdr.sigfigs = 0;
    pcap_hdr.snaplen = 65535;
-   pcap_hdr.network = 148;
+   pcap_hdr.network = 148;  // use 148 for MMDVM protocol
 
    fwrite(&pcap_hdr, sizeof(pcap_hdr), 1, a_file);
 }
@@ -604,6 +606,8 @@ void CModem::clock(unsigned int ms)
 		int ret = m_serial.write(m_buffer, len);
 		if (ret != int(len))
 			LogWarning("Error when writing DMR data to the MMDVM");
+        m_buffer[0] |= MMDVM_TX;
+        write_pcap_pkt(m_Fileout, m_buffer, len);
 
 		m_playoutTimer.start();
 
@@ -948,6 +952,9 @@ bool CModem::readVersion()
 		// CUtils::dump(1U, "Written", buffer, 3U);
 
 		int ret = m_serial.write(buffer, 3U);
+        buffer[0] |= MMDVM_TX;
+        write_pcap_pkt(m_Fileout, buffer, 3);
+
 		if (ret != 3)
 			return false;
 
@@ -960,6 +967,7 @@ bool CModem::readVersion()
 				else if (::memcmp(m_buffer + 4U, "DVMEGA", 6U) == 0)
 					m_hwType = HWT_DVMEGA;
 
+                write_pcap_pkt(m_Fileout, m_buffer, m_length);
 				LogInfo("MMDVM protocol version: %u, description: %.*s", m_buffer[3U], m_length - 4U, m_buffer + 4U);
 				return true;
 			}
@@ -983,7 +991,12 @@ bool CModem::readStatus()
 
 	// CUtils::dump(1U, "Written", buffer, 3U);
 
-	return m_serial.write(buffer, 3U) == 3;
+	bool r =  m_serial.write(buffer, 3U) == 3;
+
+    buffer[0] |= MMDVM_TX;
+    write_pcap_pkt(m_Fileout, buffer, 3);
+
+    return r;
 }
 
 bool CModem::setConfig()
@@ -1042,6 +1055,8 @@ bool CModem::setConfig()
 	int ret = m_serial.write(buffer, 16U);
 	if (ret != 16)
 		return false;
+    buffer[0] |= MMDVM_TX;
+    write_pcap_pkt(m_Fileout, buffer, 16);
 
 	unsigned int count = 0U;
 	RESP_TYPE_MMDVM resp;
@@ -1097,6 +1112,9 @@ bool CModem::setFrequency()
 	int ret = m_serial.write(buffer, 12U);
 	if (ret != 12)
 		return false;
+    
+    buffer[0] |= MMDVM_TX;
+    write_pcap_pkt(m_Fileout, buffer, 12);
 
 	unsigned int count = 0U;
 	RESP_TYPE_MMDVM resp;
@@ -1213,6 +1231,7 @@ RESP_TYPE_MMDVM CModem::getResponse()
 	}
 
 	m_offset = 0U;
+    write_pcap_pkt(m_Fileout, m_buffer, m_length);
 
 	// CUtils::dump(1U, "Received", m_buffer, m_length);
 
@@ -1233,9 +1252,14 @@ bool CModem::setMode(unsigned char mode)
 	buffer[2U] = MMDVM_SET_MODE;
 	buffer[3U] = mode;
 
-	// CUtils::dump(1U, "Written", buffer, 4U);
+  // CUtils::dump(1U, "Written", buffer, 4U);
 
-	return m_serial.write(buffer, 4U) == 4;
+	bool r = m_serial.write(buffer, 4U) == 4;
+
+    buffer[0] |= MMDVM_TX;
+    write_pcap_pkt(m_Fileout, buffer, 4);
+
+    return r;
 }
 
 bool CModem::sendCWId(const std::string& callsign)
@@ -1253,9 +1277,13 @@ bool CModem::sendCWId(const std::string& callsign)
 	for (unsigned int i = 0U; i < length; i++)
 		buffer[i + 3U] = callsign.at(i);
 
-	// CUtils::dump(1U, "Written", buffer, length + 3U);
+	 bool r = m_serial.write(buffer, length + 3U) == int(length + 3U);
 
-	return m_serial.write(buffer, length + 3U) == int(length + 3U);
+	// CUtils::dump(1U, "Written", buffer, length + 3U);
+    buffer[0] |= MMDVM_TX;
+    write_pcap_pkt(m_Fileout, buffer, 4);
+
+	return r;
 }
 
 bool CModem::writeDMRStart(bool tx)
