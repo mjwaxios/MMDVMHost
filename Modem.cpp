@@ -296,7 +296,7 @@ void CModem::clock(unsigned int ms)
 		// Nothing to do
 	} else {
 		// type == RTM_OK
-        write_pcap_pkt(m_Fileout, m_buffer, m_length);
+//        write_pcap_pkt(m_Fileout, m_buffer, m_length);
 		switch (m_buffer[2U]) {
 			case MMDVM_DSTAR_HEADER: {
 					if (m_debug)
@@ -967,7 +967,6 @@ bool CModem::readVersion()
 				else if (::memcmp(m_buffer + 4U, "DVMEGA", 6U) == 0)
 					m_hwType = HWT_DVMEGA;
 
-                write_pcap_pkt(m_Fileout, m_buffer, m_length);
 				LogInfo("MMDVM protocol version: %u, description: %.*s", m_buffer[3U], m_length - 4U, m_buffer + 4U);
 				return true;
 			}
