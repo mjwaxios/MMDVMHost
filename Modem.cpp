@@ -30,7 +30,7 @@
 #include <cassert>
 #include <cstdint>
 #include <ctime>
-
+#include <sys/time.h>
 #if defined(_WIN32) || defined(_WIN64)
 #include <Windows.h>
 #else
@@ -137,11 +137,59 @@ m_hwType(HWT_UNKNOWN)
 	assert(!port.empty());
 
 	m_buffer = new unsigned char[BUFFER_LENGTH];
+    m_Fileout = fopen("Capture.pcap", "wb");
+    write_pcap_hdr(m_Fileout);
 }
 
 CModem::~CModem()
 {
 	delete[] m_buffer;
+    fclose(m_Fileout);
+}
+
+typedef struct pcap_hdr_s {
+   uint32_t magic_number;   /* magic number */
+   uint16_t version_major;  /* major version number */
+   uint16_t version_minor;  /* minor version number */
+   int32_t  thiszone;       /* GMT to local correction */
+   uint32_t sigfigs;        /* accuracy of timestamps */
+   uint32_t snaplen;        /* max length of captured packets, in octets */
+   uint32_t network;        /* data link type */
+} pcap_hdr_t;
+
+typedef struct pcaprec_hdr_s {
+   uint32_t ts_sec;         /* timestamp seconds */
+   uint32_t ts_usec;        /* timestamp microseconds */
+   uint32_t incl_len;       /* number of octets of packet saved
+                               in file */
+   uint32_t orig_len;       /* actual length of packet */
+} pcaprec_hdr_t;
+
+void CModem::write_pcap_hdr(FILE *a_file) {
+   pcap_hdr_t pcap_hdr;
+   pcap_hdr.magic_number = 0xa1b2c3d4;
+   pcap_hdr.version_major = 2;
+   pcap_hdr.version_minor = 4;
+   pcap_hdr.thiszone = 0;
+   pcap_hdr.sigfigs = 0;
+   pcap_hdr.snaplen = 65535;
+   pcap_hdr.network = 148;
+
+   fwrite(&pcap_hdr, sizeof(pcap_hdr), 1, a_file);
+}
+
+void CModem::write_pcap_pkt(FILE *a_file, uint8_t* data, size_t data_len) {
+   struct timeval now;
+   gettimeofday(&now, NULL);
+
+   pcaprec_hdr_t pcaprec_hdr;
+   pcaprec_hdr.ts_sec = now.tv_sec;
+   pcaprec_hdr.ts_usec = now.tv_usec;
+   pcaprec_hdr.incl_len = data_len;
+   pcaprec_hdr.orig_len = data_len;
+
+   fwrite(&pcaprec_hdr, sizeof(pcaprec_hdr), 1, a_file);
+   fwrite(data, data_len, 1, a_file);
 }
 
 void CModem::setRFParams(unsigned int rxFrequency, unsigned int txFrequency)
@@ -246,6 +294,7 @@ void CModem::clock(unsigned int ms)
 		// Nothing to do
 	} else {
 		// type == RTM_OK
+        write_pcap_pkt(m_Fileout, m_buffer, m_length);
 		switch (m_buffer[2U]) {
 			case MMDVM_DSTAR_HEADER: {
 					if (m_debug)
@@ -319,6 +368,7 @@ void CModem::clock(unsigned int ms)
 			case MMDVM_DMR_DATA2: {
 					if (m_debug)
 						CUtils::dump(1U, "RX DMR Data 2", m_buffer, m_length);
+                    
 
 					unsigned char data = m_length - 2U;
 					m_rxDMRData2.addData(&data, 1U);

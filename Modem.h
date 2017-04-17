@@ -37,6 +37,10 @@ public:
 	CModem(const std::string& port, bool duplex, bool rxInvert, bool txInvert, bool pttInvert, unsigned int txDelay, unsigned int dmrDelay, bool debug = false);
 	~CModem();
 
+   void write_pcap_hdr(FILE *a_file);
+   void write_pcap_pkt(FILE *a_file, uint8_t* data, size_t data_len);
+
+
 	void setRFParams(unsigned int rxFrequency, unsigned int txFrequency);
 	void setModeParams(bool dstarEnabled, bool dmrEnabled, bool ysfEnabled, bool p25Enabled);
 	void setLevels(unsigned int rxLevel, unsigned int cwIdTXLevel, unsigned int dstarTXLevel, unsigned int dmrTXLevel, unsigned int ysfTXLevel, unsigned int p25Enabled);
@@ -137,6 +141,8 @@ private:
 	bool                       m_lockout;
 	bool                       m_error;
 	HW_TYPE                    m_hwType;
+
+    FILE                       *m_Fileout;
 
 	bool readVersion();
 	bool readStatus();

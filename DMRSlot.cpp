@@ -11,6 +11,7 @@
  *	GNU General Public License for more details.
  */
 
+
 #include "DMRAccessControl.h"
 #include "DMRSlotType.h"
 #include "DMRShortLC.h"
@@ -132,6 +133,8 @@ CDMRSlot::~CDMRSlot()
 bool CDMRSlot::writeModem(unsigned char *data, unsigned int len)
 {
 	assert(data != NULL);
+
+    //    CUtils::dump("RF Data", data + 2U, DMR_FRAME_LENGTH_BYTES + 2U); 
 
 	if (data[0U] == TAG_LOST && m_rfState == RS_RF_AUDIO) {
 		if (m_rssi != 0U)
@@ -483,12 +486,14 @@ bool CDMRSlot::writeModem(unsigned char *data, unsigned int len)
 				CBPTC19696 bptc;
 				unsigned char payload[12U];
 				bptc.decode(data + 2U, payload);
+  //                              CUtils::dump("1/2 Payload", payload, 12); 
 				bptc.encode(payload, data + 2U);
 			} else if (dataType == DT_RATE_34_DATA) {
 				CDMRTrellis trellis;
 				unsigned char payload[18U];
 				bool ret = trellis.decode(data + 2U, payload);
 				if (ret) {
+//                                        CUtils::dump("3/4 Payload", payload, 18); 
 					trellis.encode(payload, data + 2U);
 				} else {
 					LogMessage("DMR Slot %u, unfixable RF rate 3/4 data", m_slotNo);
@@ -924,6 +929,8 @@ void CDMRSlot::writeEndNet(bool writeEnd)
 
 void CDMRSlot::writeNetwork(const CDMRData& dmrData)
 {
+
+
 	if (m_rfState != RS_RF_LISTENING && m_netState == RS_NET_IDLE)
 		return;
 
@@ -933,6 +940,8 @@ void CDMRSlot::writeNetwork(const CDMRData& dmrData)
 
 	unsigned char data[DMR_FRAME_LENGTH_BYTES + 2U];
 	dmrData.getData(data + 2U);
+
+//        CUtils::dump("Network dmrData", data + 2U, DMR_FRAME_LENGTH_BYTES); 
 
 	if (dataType == DT_VOICE_LC_HEADER) {
 		if (m_netState == RS_NET_AUDIO)
